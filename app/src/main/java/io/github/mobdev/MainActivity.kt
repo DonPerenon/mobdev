@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -101,42 +101,43 @@ fun CalculatorScreen(viewModel: CalculatorViewModel = viewModel()) {
             )
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            for (row in buttons) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    for (btn in row) {
-                        val bgColor = when (btn.type) {
-                            BtnType.FUNCTION -> LightGray
-                            BtnType.NUMBER -> DarkGray
-                            BtnType.OPERATOR -> Orange
-                        }
-                        val textColor = when (btn.type) {
-                            BtnType.FUNCTION -> Color.Black
-                            else -> Color.White
-                        }
+        for (row in buttons) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                for (btn in row) {
+                    val bgColor = when (btn.type) {
+                        BtnType.FUNCTION -> LightGray
+                        BtnType.NUMBER -> DarkGray
+                        BtnType.OPERATOR -> Orange
+                    }
+                    val textColor = when (btn.type) {
+                        BtnType.FUNCTION -> Color.Black
+                        else -> Color.White
+                    }
 
-                        Button(
-                            onClick = { viewModel.onButton(btn.label) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f),
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = bgColor),
-                            contentPadding = PaddingValues(0.dp),
-                            elevation = ButtonDefaults.buttonElevation(
-                                defaultElevation = 0.dp,
-                                pressedElevation = 0.dp
-                            )
-                        ) {
-                            Text(
-                                text = btn.label,
-                                fontSize = 28.sp,
-                                color = textColor
-                            )
-                        }
+                    Button(
+                        onClick = { viewModel.onButton(btn.label) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = bgColor),
+                        contentPadding = PaddingValues(0.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 0.dp,
+                            pressedElevation = 0.dp
+                        )
+                    ) {
+                        Text(
+                            text = btn.label,
+                            fontSize = 28.sp,
+                            color = textColor
+                        )
                     }
                 }
             }
