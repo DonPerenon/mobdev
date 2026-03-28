@@ -1,5 +1,6 @@
 package io.github.mobdev
 
+import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,30 +73,35 @@ fun CalculatorScreen(viewModel: CalculatorViewModel = viewModel()) {
             CalcBtn("+", BtnType.OPERATOR)
         ),
         listOf(
-            CalcBtn("±", BtnType.NUMBER),
+            CalcBtn("±", BtnType.FUNCTION),
             CalcBtn("0", BtnType.NUMBER),
             CalcBtn(",", BtnType.NUMBER),
             CalcBtn("=", BtnType.OPERATOR)
         )
     )
 
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(
+                horizontal = if (isLandscape) 24.dp else 16.dp,
+                vertical = if (isLandscape) 4.dp else 12.dp
+            )
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .padding(end = 8.dp, bottom = 12.dp),
+                .weight(if (isLandscape) 1.2f else 2f)
+                .padding(end = 8.dp, bottom = if (isLandscape) 4.dp else 12.dp),
             contentAlignment = Alignment.BottomEnd
         ) {
             Text(
                 text = viewModel.displayResult,
                 color = Color.White,
-                fontSize = 72.sp,
+                fontSize = if (isLandscape) 36.sp else 72.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.End
@@ -106,8 +113,8 @@ fun CalculatorScreen(viewModel: CalculatorViewModel = viewModel()) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(vertical = if (isLandscape) 1.dp else 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
             ) {
                 for (btn in row) {
                     val bgColor = when (btn.type) {
@@ -135,7 +142,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel = viewModel()) {
                     ) {
                         Text(
                             text = btn.label,
-                            fontSize = 28.sp,
+                            fontSize = if (isLandscape) 16.sp else 28.sp,
                             color = textColor
                         )
                     }
