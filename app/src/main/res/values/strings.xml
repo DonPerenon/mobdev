@@ -1,3 +1,13 @@
 <resources>
     <string name="app_name">mobdev</string>
+    <string name="permission_not_granted">Нет разрешения на чтение контактов</string>
+    <string name="grant_permission">Выдать разрешение</string>
+    <string name="contacts_title">Контакты</string>
+    <string name="phone_label">Телефон</string>
+    <string name="email_label">Email</string>
+    <string name="no_phone">Нет телефона</string>
+    <string name="no_email">Нет email</string>
+    <string name="no_name">Без имени</string>
+    <string name="back">Назад</string>
+    <string name="loading">Загрузка…</string>
 </resources>
