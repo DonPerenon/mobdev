@@ -1,13 +1,28 @@
 <resources>
     <string name="app_name">mobdev</string>
-    <string name="permission_not_granted">Нет разрешения на чтение контактов</string>
-    <string name="grant_permission">Выдать разрешение</string>
-    <string name="contacts_title">Контакты</string>
-    <string name="phone_label">Телефон</string>
-    <string name="email_label">Email</string>
-    <string name="no_phone">Нет телефона</string>
-    <string name="no_email">Нет email</string>
-    <string name="no_name">Без имени</string>
     <string name="back">Назад</string>
+    <string name="ok">ОК</string>
     <string name="loading">Загрузка…</string>
+
+    <string name="login_username_hint">Логин</string>
+    <string name="login_password_hint">Пароль</string>
+    <string name="login_button">Войти</string>
+
+    <string name="chats_title">Чаты</string>
+    <string name="chats_empty">Нет доступных каналов</string>
+    <string name="logout">Выход</string>
+    <string name="select_chat">Выберите чат</string>
+
+    <string name="message_hint">Сообщение</string>
+    <string name="send_message">Отправить</string>
+    <string name="messages_empty">Сообщений пока нет</string>
+    <string name="message_image">Изображение в сообщении</string>
+    <string name="close_image">Закрыть изображение</string>
+    <string name="image_load_error">Не удалось загрузить изображение</string>
+
+    <string name="error_dialog_title">Ошибка</string>
+    <string name="error_empty_credentials">Введите логин и пароль</string>
+    <string name="error_invalid_credentials">Неверный логин / пароль</string>
+    <string name="error_unauthorized">Сессия истекла. Войдите снова</string>
+    <string name="error_network">Не удалось выполнить запрос. Проверьте сеть и попробуйте снова</string>
 </resources>
