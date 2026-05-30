@@ -25,4 +25,5 @@ data class ChatUiState(
     val fullImagePath: String? = null,
     val errorDialogMessage: String? = null,
     val skipLoginChecked: Boolean = false,
+    val isOnline: Boolean = true,
 )

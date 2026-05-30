@@ -15,7 +15,7 @@ import io.github.mobdev.ui.theme.MobdevTheme
 class MainActivity : ComponentActivity() {
 
     private val sessionManager by lazy { SessionManager() }
-    private val chatRepository by lazy { ChatRepository.create(sessionManager) }
+    private val chatRepository by lazy { ChatRepository.create(applicationContext, sessionManager) }
     private val credentialsStore by lazy { CredentialsStore(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,5 +29,10 @@ class MainActivity : ComponentActivity() {
                 ChatApp(viewModel = viewModel)
             }
         }
+    }
+
+    override fun onDestroy() {
+        chatRepository.networkMonitor.stop()
+        super.onDestroy()
     }
 }

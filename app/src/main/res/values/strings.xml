@@ -25,4 +25,7 @@
     <string name="error_invalid_credentials">Неверный логин / пароль</string>
     <string name="error_unauthorized">Сессия истекла. Войдите снова</string>
     <string name="error_network">Не удалось выполнить запрос. Проверьте сеть и попробуйте снова</string>
+    <string name="error_offline">Нет подключения к интернету</string>
+    <string name="offline_banner">Нет сети — показаны сохранённые данные</string>
+    <string name="message_pending">Ожидает отправки</string>
 </resources>

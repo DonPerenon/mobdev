@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.credentialsDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -37,15 +38,28 @@ class CredentialsStore(private val context: Context) {
         }
     }
 
+    suspend fun saveAuthToken(token: String) {
+        context.credentialsDataStore.edit { prefs ->
+            prefs[KEY_AUTH_TOKEN] = token
+        }
+    }
+
+    suspend fun getAuthToken(): String? {
+        val prefs = context.credentialsDataStore.data.first()
+        return prefs[KEY_AUTH_TOKEN]?.takeIf { it.isNotBlank() }
+    }
+
     suspend fun clear() {
         context.credentialsDataStore.edit { prefs ->
             prefs.remove(KEY_USERNAME)
             prefs.remove(KEY_PASSWORD)
+            prefs.remove(KEY_AUTH_TOKEN)
         }
     }
 
     private companion object {
         val KEY_USERNAME = stringPreferencesKey("username")
         val KEY_PASSWORD = stringPreferencesKey("password")
+        val KEY_AUTH_TOKEN = stringPreferencesKey("auth_token")
     }
 }

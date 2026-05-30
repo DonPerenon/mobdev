@@ -1,134 +1,160 @@
 package io.github.mobdev.chat.data.repository
 
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import io.github.mobdev.chat.data.api.AuthInterceptor
-import io.github.mobdev.chat.data.api.ChatApiService
-import io.github.mobdev.chat.data.dto.LoginRequestDto
-import io.github.mobdev.chat.data.dto.MessageDataDto
-import io.github.mobdev.chat.data.dto.OutgoingMessageDto
-import io.github.mobdev.chat.data.dto.TextPayloadDto
-import io.github.mobdev.chat.data.mapper.messageIdAsLong
-import io.github.mobdev.chat.data.mapper.toDomain
+import android.content.Context
+import io.github.mobdev.chat.data.local.ChatLocalStore
+import io.github.mobdev.chat.data.local.PendingOutgoingMessage
+import io.github.mobdev.chat.data.network.NetworkMonitor
 import io.github.mobdev.chat.data.session.SessionManager
 import io.github.mobdev.chat.domain.ChatMessage
-import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Retrofit
-import retrofit2.converter.moshi.MoshiConverterFactory
+import io.github.mobdev.chat.domain.mergeMessagesUnique
+import io.github.mobdev.chat.domain.toPendingChatMessage
+import io.github.mobdev.chat.domain.toPendingChatMessages
+import kotlinx.coroutines.flow.StateFlow
 import java.io.IOException
-import java.util.concurrent.TimeUnit
+import java.util.UUID
 
-class ChatRepository private constructor(
-    private val api: ChatApiService,
+class ChatRepository(
+    private val remote: RemoteChatRepository,
+    private val local: ChatLocalStore,
+    val networkMonitor: NetworkMonitor,
     private val sessionManager: SessionManager,
 ) {
 
-    val unauthorized = sessionManager.unauthorized
+    val unauthorized = remote.unauthorized
+    val isOnline: StateFlow<Boolean> = networkMonitor.isOnline
 
-    suspend fun login(username: String, password: String): Result<Unit> = runCatching {
-        val response = api.login(LoginRequestDto(name = username, pwd = password))
-        if (!response.isSuccessful) {
-            throw HttpException(response.code())
-        }
-        val token = response.body()?.string()?.trim().orEmpty()
-        if (token.isBlank()) {
-            throw IOException("empty token")
-        }
+    fun imageUrl(path: String, fullResolution: Boolean): String =
+        remote.imageUrl(path, fullResolution)
+
+    fun restoreAuthToken(token: String) {
         sessionManager.setToken(token)
     }
 
-    suspend fun logout(): Result<Unit> = runCatching {
-        api.logout()
-        sessionManager.clearToken()
+    fun currentAuthToken(): String? = sessionManager.authToken
+
+    suspend fun login(username: String, password: String): Result<Unit> {
+        networkMonitor.refresh()
+        return remote.login(username, password)
     }
 
-    suspend fun fetchChannels(): Result<List<String>> = runCatching {
-        api.getChannels()
+    suspend fun logout(): Result<Unit> {
+        val result = if (networkMonitor.isOnline.value) {
+            remote.logout()
+        } else {
+            Result.success(Unit)
+        }
+        local.clearAll()
+        return result
+    }
+
+    suspend fun fetchChannels(): Result<List<String>> {
+        if (!networkMonitor.isOnline.value) {
+            val cached = local.getChannels()
+            return if (cached.isNotEmpty()) {
+                Result.success(cached)
+            } else {
+                Result.failure(OfflineException())
+            }
+        }
+        return remote.fetchChannels()
+            .onSuccess { local.saveChannels(it) }
+            .recoverCatching { error ->
+                val cached = local.getChannels()
+                if (cached.isNotEmpty()) cached else throw error
+            }
+    }
+
+    suspend fun getCachedChannels(): List<String> = local.getChannels()
+
+    suspend fun loadChannelMessages(channel: String): List<ChatMessage> {
+        val cached = local.getMessages(channel)
+        val pending = local.getPendingMessagesForChannel(channel).toPendingChatMessages()
+        return mergeMessagesUnique(cached, pending)
     }
 
     suspend fun fetchMessages(
         channel: String,
-        lastKnownId: Long = INITIAL_LAST_KNOWN_ID,
+        lastKnownId: Long = RemoteChatRepository.INITIAL_LAST_KNOWN_ID,
         reverse: Boolean = true,
-        limit: Int = PAGE_SIZE,
-    ): Result<List<ChatMessage>> = runCatching {
-        api.getChannelMessages(
-            channelName = channel,
-            limit = limit,
+        limit: Int = RemoteChatRepository.PAGE_SIZE,
+    ): Result<List<ChatMessage>> {
+        if (!networkMonitor.isOnline.value) {
+            val merged = loadChannelMessages(channel)
+            return if (merged.isNotEmpty()) {
+                Result.success(merged)
+            } else {
+                Result.failure(OfflineException())
+            }
+        }
+        return remote.fetchMessages(
+            channel = channel,
             lastKnownId = lastKnownId,
             reverse = reverse,
-        )
-            .mapNotNull { it.toDomain() }
-            .sortedBy { messageIdAsLong(it.id) }
+            limit = limit,
+        ).onSuccess { page ->
+            if (!reverse || lastKnownId == RemoteChatRepository.INITIAL_LAST_KNOWN_ID) {
+                local.saveMessages(channel, page)
+            } else {
+                val existing = local.getMessages(channel)
+                local.saveMessages(channel, mergeMessagesUnique(existing, page))
+            }
+        }.recoverCatching { error ->
+            val merged = loadChannelMessages(channel)
+            if (merged.isNotEmpty()) merged else throw error
+        }.map {
+            loadChannelMessages(channel)
+        }
     }
 
     suspend fun sendTextMessage(
         username: String,
         channel: String,
         text: String,
-    ): Result<Unit> = runCatching {
-        val body = OutgoingMessageDto(
-            from = username,
-            to = channel,
-            data = MessageDataDto(
-                Text = TextPayloadDto(text = text),
-                Image = null,
-            ),
-        )
-        val response = api.sendMessage(body)
-        if (!response.isSuccessful) {
-            throw HttpException(response.code())
+    ): Result<Unit> {
+        if (!networkMonitor.isOnline.value) {
+            val pending = PendingOutgoingMessage(
+                localId = "pending-${UUID.randomUUID()}",
+                channel = channel,
+                from = username,
+                text = text,
+                createdAt = System.currentTimeMillis(),
+            )
+            local.addPendingMessage(pending)
+            return Result.success(Unit)
+        }
+        return remote.sendTextMessage(username, channel, text)
+            .onSuccess { refreshAfterSend(channel) }
+    }
+
+    private suspend fun refreshAfterSend(channel: String) {
+        remote.fetchMessages(channel = channel)
+            .onSuccess { local.saveMessages(channel, it) }
+    }
+
+    suspend fun flushPendingMessages(): Result<Unit> = runCatching {
+        if (!networkMonitor.isOnline.value) return@runCatching
+        val pending = local.getPendingMessages()
+        for (message in pending) {
+            remote.sendTextMessage(message.from, message.channel, message.text).getOrThrow()
+            local.removePendingMessage(message.localId)
         }
     }
 
-    fun imageUrl(path: String, fullResolution: Boolean): String {
-        val segment = if (fullResolution) "img" else "thumb"
-        val parts = path.trim().trimStart('/').split('/').filter { it.isNotEmpty() }
-        val builder = BASE_URL.toHttpUrl().newBuilder().addPathSegment(segment)
-        parts.forEach { builder.addPathSegment(it) }
-        return builder.build().toString()
-    }
-
-    class HttpException(val code: Int) : IOException("HTTP $code")
+    class OfflineException : IOException("offline")
 
     companion object {
-        const val BASE_URL = "https://faerytea.name/"
-        const val PAGE_SIZE = 20
-        const val INITIAL_LAST_KNOWN_ID = 9_999_999_999_999L
-
-        fun create(sessionManager: SessionManager): ChatRepository {
-            val moshi = Moshi.Builder()
-                .add(KotlinJsonAdapterFactory())
-                .build()
-
-            val logging = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BASIC
-            }
-
-            val client = OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .addInterceptor(
-                    AuthInterceptor(
-                        tokenProvider = { sessionManager.authToken },
-                        onUnauthorized = sessionManager::notifyUnauthorized,
-                    ),
-                )
-                .addInterceptor(logging)
-                .build()
-
-            val retrofit = Retrofit.Builder()
-                .baseUrl(BASE_URL)
-                .client(client)
-                .addConverterFactory(MoshiConverterFactory.create(moshi))
-                .build()
-
+        fun create(context: Context, sessionManager: SessionManager): ChatRepository {
+            val appContext = context.applicationContext
+            val networkMonitor = NetworkMonitor(appContext)
+            networkMonitor.start()
             return ChatRepository(
-                api = retrofit.create(ChatApiService::class.java),
+                remote = RemoteChatRepository.create(sessionManager),
+                local = ChatLocalStore(appContext),
+                networkMonitor = networkMonitor,
                 sessionManager = sessionManager,
             )
         }
     }
 }
+
+typealias HttpException = RemoteChatRepository.HttpException

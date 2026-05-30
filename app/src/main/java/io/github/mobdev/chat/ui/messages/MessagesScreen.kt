@@ -198,6 +198,13 @@ private fun MessageItem(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
+            if (message.isPending) {
+                Text(
+                    text = stringResource(R.string.message_pending),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             when (val content = message.content) {
                 is MessageContent.Text -> {
                     Text(

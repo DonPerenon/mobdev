@@ -11,4 +11,5 @@ data class ChatMessage(
     val to: String,
     val content: MessageContent,
     val time: String?,
+    val isPending: Boolean = false,
 )

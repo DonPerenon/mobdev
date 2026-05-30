@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,6 +44,8 @@ fun ChatApp(viewModel: ChatViewModel) {
                 stringResource(R.string.error_invalid_credentials)
             ChatViewModel.ERROR_UNAUTHORIZED ->
                 stringResource(R.string.error_unauthorized)
+            ChatViewModel.ERROR_OFFLINE ->
+                stringResource(R.string.error_offline)
             else -> stringResource(R.string.error_network)
         }
     }
@@ -72,11 +75,17 @@ fun ChatApp(viewModel: ChatViewModel) {
         }
     }
 
+    val showOfflineBanner = !state.isOnline &&
+        state.portraitScreen != PortraitScreen.Login &&
+        state.skipLoginChecked
+
     if (state.fullImagePath != null) {
-        FullImageScreen(
-            imageUrl = viewModel.imageUrl(state.fullImagePath!!, fullResolution = true),
-            onClose = viewModel::closeFullImage,
-        )
+        ChatScreenContainer(showOfflineBanner = showOfflineBanner) {
+            FullImageScreen(
+                imageUrl = viewModel.imageUrl(state.fullImagePath!!, fullResolution = true),
+                onClose = viewModel::closeFullImage,
+            )
+        }
         return
     }
 
@@ -88,6 +97,7 @@ fun ChatApp(viewModel: ChatViewModel) {
     }
 
     if (isLandscape) {
+        ChatScreenContainer(showOfflineBanner = showOfflineBanner) {
         Row(modifier = Modifier.fillMaxSize()) {
             ChatListScreen(
                 channels = state.channels,
@@ -133,9 +143,11 @@ fun ChatApp(viewModel: ChatViewModel) {
                 }
             }
         }
+        }
         return
     }
 
+    ChatScreenContainer(showOfflineBanner = showOfflineBanner) {
     when (state.portraitScreen) {
         PortraitScreen.Login -> {
             LoginScreen(
@@ -176,6 +188,22 @@ fun ChatApp(viewModel: ChatViewModel) {
                     onLoadMore = viewModel::loadMoreMessages,
                 )
             }
+        }
+    }
+    }
+}
+
+@Composable
+private fun ChatScreenContainer(
+    showOfflineBanner: Boolean,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (showOfflineBanner) {
+            OfflineBanner()
+        }
+        Box(modifier = Modifier.weight(1f)) {
+            content()
         }
     }
 }
