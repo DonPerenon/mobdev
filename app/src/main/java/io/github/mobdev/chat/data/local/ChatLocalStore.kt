@@ -65,6 +65,11 @@ class ChatLocalStore(context: Context) {
 
     suspend fun getPendingMessages(): List<PendingOutgoingMessage> {
         val json = dataStore.data.first()[KEY_PENDING] ?: return emptyList()
+        return readPendingList(json)
+    }
+
+    private fun readPendingList(json: String?): List<PendingOutgoingMessage> {
+        if (json.isNullOrBlank()) return emptyList()
         return pendingAdapter.fromJson(json).orEmpty()
     }
 
@@ -74,14 +79,14 @@ class ChatLocalStore(context: Context) {
 
     suspend fun addPendingMessage(message: PendingOutgoingMessage) {
         dataStore.edit { prefs ->
-            val current = pendingAdapter.fromJson(prefs[KEY_PENDING]).orEmpty()
+            val current = readPendingList(prefs[KEY_PENDING])
             prefs[KEY_PENDING] = pendingAdapter.toJson(current + message)
         }
     }
 
     suspend fun removePendingMessage(localId: String) {
         dataStore.edit { prefs ->
-            val current = pendingAdapter.fromJson(prefs[KEY_PENDING]).orEmpty()
+            val current = readPendingList(prefs[KEY_PENDING])
             prefs[KEY_PENDING] = pendingAdapter.toJson(
                 current.filterNot { it.localId == localId },
             )
